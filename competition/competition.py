@@ -151,6 +151,18 @@ class Competition:
             self.__logger.error(f"Error creating TREC text file: {e}")
             raise
 
+    def __save_checkpoint(self):
+        """
+        Save the history of all games up to the last finished round, so the competition can be resumed with warm start.
+        """
+        history = pd.concat([self.__games[game].get_game_history() for game in self.__games], ignore_index=True)
+        checkpoint_path = os.path.join(self.output_folder, COMPETITION_HISTORY_FILE_NAME)
+
+        # Write to a temporary file first, so a crash while writing does not corrupt the previous checkpoint
+        history.to_csv(checkpoint_path + ".tmp", index=False)
+        os.replace(checkpoint_path + ".tmp", checkpoint_path)
+        self.__logger.info("Checkpoint saved.")
+
     def round_by_round_competition(self):
         """
         Run the competition in a round-by-round manner.
@@ -222,6 +234,9 @@ class Competition:
                     self.__games[game].update_game_history(round_dfs[idx])
                     if round_number == self.__rounds:
                         self.__games_history[idx] = self.__games[game].get_game_history()
+
+                # Save the history after every round so a crash does not lose the finished rounds
+                self.__save_checkpoint()
 
         except Exception as e:
             self.__logger.error(

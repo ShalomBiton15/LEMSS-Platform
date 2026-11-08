@@ -5,6 +5,9 @@ from LLMs.LLM import LLM
 from utils.logger import setup_logger
 from constants.constants import HUGGING_FACE_LLM_LOG_FILE, HUGGING_FACE_LLM_LOG_NAME
 
+# Models already loaded, by model name, so agents that use the same model share one copy in GPU memory
+_LOADED_MODELS = {}
+
 
 class HuggingFaceLLM(LLM):
     """
@@ -28,11 +31,14 @@ class HuggingFaceLLM(LLM):
         self.__logger.info(f"Hugging Face LLM model initialized successfully with model: {model_name}")
 
         try:
-            # Load model for other devices using the Hugging Face pipeline
-            self.__model = transformers.pipeline("text-generation", model=self.model_name,
-                                                 model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto",
-                                                 token=self.token)
-            self.__tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
+            # Load the model once per model name and reuse it for every agent that uses it
+            if self.model_name not in _LOADED_MODELS:
+                model = transformers.pipeline("text-generation", model=self.model_name,
+                                              model_kwargs={"torch_dtype": torch.bfloat16}, device_map="auto",
+                                              token=self.token)
+                tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
+                _LOADED_MODELS[self.model_name] = (model, tokenizer)
+            self.__model, self.__tokenizer = _LOADED_MODELS[self.model_name]
         except Exception as e:
             self.__logger.error(f"Error initializing hugging face model: {e}")
             raise
