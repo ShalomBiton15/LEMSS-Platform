@@ -1,2 +1,4 @@
 my_config.json
 outputs/
+__pycache__/
+run_logs/

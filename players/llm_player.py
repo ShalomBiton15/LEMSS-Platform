@@ -52,6 +52,9 @@ class LLMPlayer(Player):
                 self.document, non_cleaned_document = self.__llm.generate_prompt(user_prompt, system_prompt, max_tokens,
                                                                           force_max_tokens=force_max_tokens)
             else:
+                # Game.generate_documents does not pass init_doc, so fall back to the player's initial document
+                if init_doc is None:
+                    init_doc = self.init_document
                 system_prompt = self.prompt_manager.build_system_prompt(self.query, init_doc, self.character)
                 self.document, non_cleaned_document = self.__llm.generate_prompt("", system_prompt, max_tokens,
                                                                           force_max_tokens=force_max_tokens)
